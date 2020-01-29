@@ -1,17 +1,18 @@
 {% set name = "gcc_impl" %}
-{% set version = "7.3.0" %}
+{% set version = ctng_gcc %}
 {% set chost = ctng_cpu_arch ~ "-" ~ ctng_vendor ~ "-linux-gnu-" %}
+{% set build_num = ctng_gcc_build_number %}
 
 package:
-  name: gcc_impl_{{ target_platform }}
+  name: gcc_compilers
   version: {{ version }}
 
 source:
   - url: https://ftp.gnu.org/gnu/gcc/gcc-{{ version }}/gcc-{{ version }}.tar.gz
     folder: .
 
-  - url: https://ftp.gnu.org/gnu/binutils/binutils-2.29.1.tar.bz2
-    folder: binutils
+  #- url: https://ftp.gnu.org/gnu/binutils/binutils-{{ ctng_binutils }}.tar.bz2
+  #folder: binutils-src
 
   # Get the patches from crosstool-ng
   # Using https://github.com/crosstool-ng/crosstool-ng/pull/1268
@@ -25,13 +26,278 @@ build:
 
 requirements:
   build:
-    #- gcc_bootstrap_{{ target_platform }}
-    #- make
+    - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
   host:
     - sysroot-{{ target_platform }}
-    #- binutils
   run:
     - sysroot-{{ target_platform }}
+
+outputs:
+  - name: gcc_impl_{{ ctng_target_platform }}
+    script: install-gcc.sh
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation:
+        - 'bin/*'
+        - 'lib/*.so*'
+        - 'libexec/**/*.so*'
+        - 'libexec/**/cc1*'
+        - 'libexec/**/collect2'
+        - 'libexec/**/gcc'
+        - 'libexec/**/lto*'
+        - 'libexec/**/plugin/gengtype'
+      missing_dso_whitelist:
+        - '*'
+      runpath_whitelist:
+        - "x86_64-conda-linux-gnu/sysroot/lib/libpthread-2.12.2.so"
+    requirements:
+      build:
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+        - {{ pin_subpackage("libstdcxx-ng", max_pin=None) }}
+        - {{ pin_subpackage("libgcc-ng", max_pin=None) }}
+      run:
+        - sysroot-{{ ctng_target_platform }}
+        - binutils_impl_{{ ctng_target_platform }}  >={{ ctng_binutils }}
+        # libstdcxx-ng is a runtime dep of gcc because LTO requires it.
+        - {{ pin_subpackage("libstdcxx-ng", max_pin=None) }}
+        - {{ pin_subpackage("libgcc-ng", max_pin=None) }}
+    test:
+      files:
+        - tests
+      commands:
+        - CC=$(${PREFIX}/bin/*-gcc -dumpmachine)-gcc
+        #- ${CC} -Wall tests/aligned_alloc.c -o c_aligned
+        #- ./c_aligned
+    about:
+      summary: GNU C Compiler
+      home: https://gcc.gnu.org/
+      license: GPL-3.0-with-GCC-exception
+
+  - name: gxx_impl_{{ ctng_target_platform }}
+    script: install-g++.sh
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation:
+        - 'bin/*'
+        - 'lib/*.so'
+        - 'libexec/**/*.so*'
+        - 'libexec/**/cc1*'
+      missing_dso_whitelist:
+        - "*"
+    requirements:
+      build:
+        # For cpp and crt{i,n}.o
+        - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+        - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
+      run:
+        # For cpp and crt{i,n}.o
+        - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
+    run_exports:
+      # impose this requirement across the build/host boundary
+      strong:
+        - {{ pin_subpackage("libstdcxx-ng", max_pin=None) }}
+    test:
+      files:
+        - tests
+      commands:
+        #- CXX=$(${PREFIX}/bin/*-gcc -dumpmachine)-g++
+        #- ${CXX} -Wall tests/aligned_alloc.cpp -o cpp_aligned --std=c++17
+        #- ./cpp_aligned
+    about:
+      summary: GNU C++ Compiler
+      home: https://gcc.gnu.org/
+      license: GPL-3.0-with-GCC-exception
+
+  - name: gfortran_impl_{{ ctng_target_platform }}
+    script: install-gfortran.sh
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation:
+        - 'bin/*'
+        - 'lib/*.so'
+        - 'libexec/**/*.so*'
+        - 'libexec/**/f951'
+      missing_dso_whitelist:
+        - "*"
+    requirements:
+      build:
+        # For cpp and crt{i,n}.o
+        - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+        - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
+      run:
+        # For cpp and crt{i,n}.o
+        - gcc_impl_{{ ctng_target_platform }} >={{ ctng_gcc }}
+        - {{ pin_subpackage("libgfortran-ng") }}
+        - {{ pin_subpackage("libgcc-ng", max_pin=None) }}
+    run_exports:
+      # impose this requirement across the build/host boundary
+      strong:
+        - {{ pin_subpackage("libgfortran-ng") }}
+        - {{ pin_subpackage("libgcc-ng", max_pin=None) }}
+    test:
+      requires:
+        - cmake >=3.11
+      commands:
+        - find $PREFIX/lib -iname omp_lib.mod | grep '.'
+        - find $PREFIX/lib -iname omp_lib.h | grep '.'
+        - pushd tests/fortomp
+        - sh test_fort.sh
+      files:
+        - tests/fortomp/*
+    about:
+      summary: GNU Fortran Compiler
+      home: https://gcc.gnu.org/
+      license: GPL-3.0-with-GCC-exception
+
+  - name: libstdcxx-ng
+    target: {{ ctng_target_platform }}
+    script: install-libstdc++.sh
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation: False
+      missing_dso_whitelist:
+        - "*"
+    requirements:
+      build:
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+        - {{ pin_subpackage("libgcc-ng", exact=True) }}
+    test:
+      commands:
+        - test -f ${PREFIX}/lib/libstdc++.so
+    about:
+      summary: The GNU C++ Runtime Library
+      home: https://gcc.gnu.org/
+      license: GPL-3.0-with-GCC-exception
+
+  - name: libgcc-ng
+    target: {{ ctng_target_platform }}
+    script: install-libgcc-no-gomp.sh
+    requirements:
+      build:
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+        - {{ pin_subpackage("libgomp", exact=True) }}
+        - {{ pin_subpackage('_openmp_mutex', exact=True) }}
+      run:
+        - _libgcc_mutex {{ _libgcc_mutex }}
+        - {{ pin_subpackage("_openmp_mutex", max_pin=None) }}
+      run_constrained:
+        - {{ pin_subpackage("libgomp", exact=True) }}
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation: False
+      missing_dso_whitelist:
+        - "*"
+    test:
+      commands:
+        - test -f ${PREFIX}/lib/libgcc_s.so
+        - test -f ${PREFIX}/lib/libgomp.so.{{ libgomp_ver[0:1] }}
+        - test -f ${PREFIX}/*/sysroot/lib/libgomp.so.{{ libgomp_ver[0:1] }}
+        - test `readlink ${PREFIX}/lib/libgomp.so.{{ libgomp_ver[0:1] }}` == "libgomp.so.{{ libgomp_ver }}"
+        - test `readlink ${PREFIX}/*/sysroot/lib/libgomp.so.{{ libgomp_ver[0:1] }}` == "../../../lib/libgomp.so.{{ libgomp_ver[0:1] }}"
+    about:
+      summary: The GCC low-level runtime library
+      home: https://gcc.gnu.org/onlinedocs/gccint/Libgcc.html
+      license: GPL
+
+  - name: libgomp
+    target: {{ ctng_target_platform }}
+    script: install-libgomp.sh
+    requirements:
+      build:
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+      run:
+        - _libgcc_mutex {{ _libgcc_mutex }}
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation: False
+      missing_dso_whitelist:
+        - "*"
+      run_exports: 
+        strong:
+          - {{ pin_subpackage("_openmp_mutex", max_pin=None) }}
+    test:
+      commands:
+        - test -f ${PREFIX}/lib/libgomp.so.{{ libgomp_ver }}
+        - test -f ${PREFIX}/*/sysroot/lib/libgomp.so.{{ libgomp_ver }}
+        - test ! -f ${PREFIX}/lib/libgomp.so
+        - test ! -f ${PREFIX}/lib/libgomp.so.{{ libgomp_ver[0:1] }}
+        - test `readlink ${PREFIX}/*/sysroot/lib/libgomp.so.{{ libgomp_ver }}` == "../../../lib/libgomp.so.{{ libgomp_ver }}"
+    about:
+      summary: The GCC OpenMP implementation.
+      home: https://gcc.gnu.org/onlinedocs/gccint/Libgcc.html
+      license: GPL
+
+  - name: _openmp_mutex
+    script: install-openmp_impl.sh
+    version: {{ openmp_ver }}
+    requirements:
+      build:
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - {{ pin_subpackage('libgomp', exact=True) }}
+        - sysroot-{{ ctng_target_platform }}
+      run:
+        - _libgcc_mutex {{ _libgcc_mutex }}
+        - {{ pin_subpackage("libgomp", max_pin=None) }}
+      run_constrained:
+        # conflict with previous name
+        - openmp_impl 9999
+    build:
+      string: 0_gnu
+      run_exports:
+        strong:
+          - {{ pin_subpackage("_openmp_mutex", max_pin=None) }}
+    test:
+      commands:
+        - test -f ${PREFIX}/lib/libgomp.so.{{ libgomp_ver[0:1] }}
+        - test `readlink ${PREFIX}/lib/libgomp.so.{{ libgomp_ver[0:1] }}` == "libgomp.so.{{ libgomp_ver }}"
+    about:
+      summary: OpenMP Implementation Mutex
+      license: BSD-3-Clause
+      license_file: LICENSE
+      home: https://github.com/conda-forge/ctng-compilers-feedstock
+
+  - name: libgfortran-ng
+    target: {{ ctng_target_platform }}
+    script: install-libgfortran.sh
+    build:
+      number: {{ build_num }}
+      detect_binary_files_with_prefix: False
+      binary_relocation: False
+      missing_dso_whitelist:
+        - "*"
+    requirements:
+      build:
+        - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
+      host:
+        - sysroot-{{ ctng_target_platform }}
+    test:
+      commands:
+        - test -f ${PREFIX}/lib/libgfortran.so
+    about:
+      summary: The GNU Fortran Runtime Library
+      home: https://gcc.gnu.org/
+      license: GPL-3.0-with-GCC-exception
 
 about:
   home: https://www.gnu.org/software/binutils/

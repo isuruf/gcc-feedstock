@@ -8,16 +8,9 @@ set -e
 
 export HOST="${ctng_cpu_arch}-${ctng_vendor}-linux-gnu"
 
-pushd binutils
-for file in ../crosstool_ng/packages/binutils/2.29.1/*.patch; do
-  patch -p1 < $file;
-done
-
-mkdir build
-cd build
-
-../configure \
-  --prefix="$BUILD_PREFIX" \
+build_binutils () {
+  ../configure \
+  --prefix="$1" \
   --target=$HOST \
   --enable-ld=default \
   --enable-gold=yes \
@@ -30,15 +23,38 @@ cd build
   --with-sysroot=$PREFIX/$HOST/sysroot \
   --with-build-sysroot=$PREFIX/$HOST/sysroot
 
-make -j${CPU_COUNT}
-make install
+  make -j${CPU_COUNT}
+}
+
+
+#pushd binutils-src
+#  for file in ../crosstool_ng/packages/binutils/${ctng_binutils}/*.patch; do
+#    patch -p1 < $file;
+#  done
+#  mkdir -p  build
+#  pushd build
+#    build_binutils $BUILD_PREFIX
+#    make install
+#    build_binutils $PREFIX
+#  popd
+#popd
 
 for f in addr2line ar as c++filt dwp elfedit gprof ld ld.bfd ld.gold nm objcopy objdump ranlib readelf size strings strip; do
-    ln -s $BUILD_PREFIX/bin/x86_64-conda-linux-gnu-$f $BUILD_PREFIX/bin/$f
+    ln -s $BUILD_PREFIX/bin/$HOST-$f $BUILD_PREFIX/bin/$f
 done
-popd
 
 ./contrib/download_prerequisites
+
+# We want CONDA_PREFIX/usr/lib not CONDA_PREFIX/usr/lib64 and this
+# is the only way. It is incompatible with multilib (obviously).
+TINFO_FILES=$(find . -path "*/config/*/t-*")
+for TINFO_FILE in ${TINFO_FILES}; do
+  echo TINFO_FILE ${TINFO_FILE}
+  sed -i.bak 's#^\(MULTILIB_OSDIRNAMES.*\)\(lib64\)#\1lib#g' ${TINFO_FILE}
+  rm -f ${TINFO_FILE}.bak
+  sed -i.bak 's#^\(MULTILIB_OSDIRNAMES.*\)\(libx32\)#\1lib#g' ${TINFO_FILE}
+  rm -f ${TINFO_FILE}.bak
+done
 
 mkdir build
 cd build
@@ -47,6 +63,7 @@ export HOST="${ctng_cpu_arch}-${ctng_vendor}-linux-gnu"
 
 ../configure \
   --prefix="$PREFIX" \
+  --with-slibdir="$PREFIX/lib" \
   --libdir="$PREFIX/lib" \
   --target=$HOST \
   --enable-default-pie \
