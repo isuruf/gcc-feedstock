@@ -28,9 +28,9 @@ requirements:
   build:
     - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
   host:
-    - sysroot-{{ target_platform }}
+    - sysroot_{{ target_platform }}
   run:
-    - sysroot-{{ target_platform }}
+    - sysroot_{{ target_platform }}
 
 outputs:
   - name: gcc_impl_{{ ctng_target_platform }}
@@ -55,11 +55,11 @@ outputs:
       build:
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
         - {{ pin_subpackage("libstdcxx-ng", max_pin=None) }}
         - {{ pin_subpackage("libgcc-ng", max_pin=None) }}
       run:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
         - binutils_impl_{{ ctng_target_platform }}  >={{ ctng_binutils }}
         # libstdcxx-ng is a runtime dep of gcc because LTO requires it.
         - {{ pin_subpackage("libstdcxx-ng", max_pin=None) }}
@@ -94,7 +94,7 @@ outputs:
         - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
         - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
       run:
         # For cpp and crt{i,n}.o
@@ -133,7 +133,7 @@ outputs:
         - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
         - {{ pin_subpackage("gcc_impl_" ~ ctng_target_platform, exact=True) }}
       run:
         # For cpp and crt{i,n}.o
@@ -173,7 +173,7 @@ outputs:
       build:
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
         - {{ pin_subpackage("libgcc-ng", exact=True) }}
     test:
       commands:
@@ -190,7 +190,7 @@ outputs:
       build:
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
         - {{ pin_subpackage("libgomp", exact=True) }}
         - {{ pin_subpackage('_openmp_mutex', exact=True) }}
       run:
@@ -200,8 +200,9 @@ outputs:
         - {{ pin_subpackage("libgomp", exact=True) }}
     build:
       number: {{ build_num }}
-      detect_binary_files_with_prefix: False
-      binary_relocation: False
+      #detect_binary_files_with_prefix: False
+      #binary_relocation: False
+      rpaths_patcher: patchelf
       missing_dso_whitelist:
         - "*"
     test:
@@ -223,7 +224,7 @@ outputs:
       build:
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
       run:
         - _libgcc_mutex {{ _libgcc_mutex }}
     build:
@@ -234,7 +235,7 @@ outputs:
         - "*"
       run_exports: 
         strong:
-          - {{ pin_subpackage("_openmp_mutex", max_pin=None) }}
+         - {{ pin_subpackage("_openmp_mutex", max_pin=None) }}
     test:
       commands:
         - test -f ${PREFIX}/lib/libgomp.so.{{ libgomp_ver }}
@@ -255,7 +256,7 @@ outputs:
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
         - {{ pin_subpackage('libgomp', exact=True) }}
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
       run:
         - _libgcc_mutex {{ _libgcc_mutex }}
         - {{ pin_subpackage("libgomp", max_pin=None) }}
@@ -290,7 +291,7 @@ outputs:
       build:
         - binutils_impl_{{ target_platform }}  {{ ctng_binutils }}
       host:
-        - sysroot-{{ ctng_target_platform }}
+        - sysroot_{{ ctng_target_platform }}
     test:
       commands:
         - test -f ${PREFIX}/lib/libgfortran.so

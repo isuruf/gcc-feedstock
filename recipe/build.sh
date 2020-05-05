@@ -40,7 +40,9 @@ build_binutils () {
 #popd
 
 for f in addr2line ar as c++filt dwp elfedit gprof ld ld.bfd ld.gold nm objcopy objdump ranlib readelf size strings strip; do
-    ln -s $BUILD_PREFIX/bin/$HOST-$f $BUILD_PREFIX/bin/$f
+    ln -s $BUILD_PREFIX/bin/${ctng_cpu_arch}-conda-linux-gnu-$f $BUILD_PREFIX/bin/$f
+    #ln -s $BUILD_PREFIX/bin/${ctng_cpu_arch}-conda_cos6-linux-gnu-$f $BUILD_PREFIX/bin/$f
+    #ln -s $BUILD_PREFIX/bin/${ctng_cpu_arch}-conda_cos6-linux-gnu-$f $BUILD_PREFIX/bin/$HOST-$f
 done
 
 ./contrib/download_prerequisites
@@ -77,7 +79,6 @@ export HOST="${ctng_cpu_arch}-${ctng_vendor}-linux-gnu"
   --enable-libsanitizer \
   --enable-libmpx \
   --enable-lto \
-  --with-host-libstdcxx='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm' \
   --enable-threads=posix \
   --enable-target-optspace \
   --enable-plugin \

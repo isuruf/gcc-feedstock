@@ -32,3 +32,5 @@ popd
 echo "debug the links..."
 ls -lah ${PREFIX}/lib/libgomp.so*
 ls -lah ${PREFIX}/${CHOST}/sysroot/lib/libgomp.so*
+
+readelf -d ${PREFIX}/lib/libgcc_s.so.1
